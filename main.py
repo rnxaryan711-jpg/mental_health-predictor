@@ -1,11 +1,22 @@
 import joblib
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from pydantic import BaseModel,Field 
 import pandas as pd
 from typing import Literal
-model =joblib.load('mental_health_model.pkl')
+from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
+
+BASE_DIR = Path(__file__).resolve().parent
+model = joblib.load(BASE_DIR / 'mental_health_model.pkl')
 
 app=FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class StudentData(BaseModel):
     Age                      :int =Field(..., ge=10 ,le=100)
@@ -22,10 +33,8 @@ class StudentData(BaseModel):
     Stress_Level             :Literal['Medium', 'Low', 'Very High', 'High']
 
 
-
 class PredictionResponse(BaseModel):
     predicted_mental_health_score:float
-
 
 top_countries= ['Other',
  'India',
@@ -38,9 +47,28 @@ top_countries= ['Other',
  'Turkey',
  'France'] 
 
-@app.get("/")
+gender_map = {'male': 'Male', 'female': 'Female'}
+academic_level_map = {
+    'highschool': 'High School',
+    'undergraduate': 'Undergraduate',
+    'graduate': 'Graduate',
+}
+
+
+@app.get("/", include_in_schema=False)
 def home():
-    return {"message": "Mental Health Prediction API is running"}
+    return FileResponse(BASE_DIR / 'index.html')
+
+
+@app.get("/style.css", include_in_schema=False)
+def style_css():
+    return FileResponse(BASE_DIR / 'style.css', media_type='text/css')
+
+
+@app.get("/script.js", include_in_schema=False)
+def script_js():
+    return FileResponse(BASE_DIR / 'script.js', media_type='application/javascript')
+
 
 
 
@@ -51,14 +79,14 @@ def home():
 
 
 def predict(data:StudentData):
-    country_group= data.Country if data.Country in top_countries else 'others'
+    country_group= data.Country if data.Country in top_countries else 'other'
     input_row=pd.DataFrame([{
 
     
         'Age'                      :data.Age,
-        'Gender'                   :data.Gender,
+        'Gender'                   :gender_map[data.Gender],
         'Country'                  :data.Country, 
-        'Academic_Level'           :data.Academic_Level, 
+        'Academic_Level'           :academic_level_map[data.Academic_Level], 
         'Most_Used_Platform'       :data.Most_Used_Platform,
         'Purpose_Of_Use'           :data.Purpose_Of_Use, 
         'Avg_Daily_Usage_Hours'    :data.Avg_Daily_Usage_Hours, 
@@ -75,3 +103,10 @@ def predict(data:StudentData):
 
     prediction=model.predict(input_row)[0]
     return PredictionResponse(predicted_mental_health_score=round(float(prediction),2))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
+
+
