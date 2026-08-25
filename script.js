@@ -2,7 +2,7 @@ const API_BASE =
     window.location.protocol === "http:" ||
     window.location.protocol === "https:"
         ? window.location.origin
-        : "http://127.0.0.1:2200";
+        : "https://mental-health-predictor-1-b0at.onrender.com";
 
 
 // --------------------------------------------------
